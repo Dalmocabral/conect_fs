@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHB
 from PyQt5.QtGui import QFont
 from SimConnect import *
 import time
+import pygame
 
 class SimConnectWorker(threading.Thread):
     def __init__(self, update_callback):
@@ -12,7 +13,14 @@ class SimConnectWorker(threading.Thread):
         self.running = False
 
     def run(self):
-        self.running = True
+        self.running = True 
+        pygame.mixer.init()
+
+        embarque_tocado = False
+        boasvindas_tocado = False
+        taxiamento_tocado = False
+        tempo_embarque = None
+
         try:
             sm = SimConnect()
             self.update_callback("🟢 Conectado ao MSFS2020 com sucesso!")
@@ -20,11 +28,48 @@ class SimConnectWorker(threading.Thread):
 
             while self.running:
                 try:
-                    altitude = aircraft.get("PLANE_ALTITUDE")
-                    speed = aircraft.get("AIRSPEED_INDICATED")
-                    self.update_callback(f"🛫 ALT: {altitude:.2f} ft | SPEED: {speed:.2f} kt")
-                except:
-                    self.update_callback("⚠️ Erro ao ler dados da aeronave.")
+                    altitude = aircraft.get("PLANE_ALTITUDE") or 0
+                    speed = aircraft.get("AIRSPEED_INDICATED") or 0
+                    voltage = aircraft.get("ELECTRICAL_MAIN_BUS_VOLTAGE") or 0
+                    ground_speed = aircraft.get("GROUND_VELOCITY") or 0
+                    ground_speed_knots = ground_speed * 1.94384
+
+                    # Áudio 1: Embarque (com try para detectar erro real)
+                    if voltage > 1 and not embarque_tocado:
+                        try:
+                            pygame.mixer.music.load("audio/01_Embarque.mp3")
+                            pygame.mixer.music.play()
+                            self.update_callback("[✔️] Embarque")
+                            embarque_tocado = True
+                            tempo_embarque = time.time()
+                        except Exception as e:
+                            self.update_callback(f"⚠️ Erro ao tocar áudio de embarque: {e}")
+                            embarque_tocado = False  # não marca como tocado se der erro
+
+                    # Áudio 2: Boas Vindas (somente se embarque foi tocado com sucesso)
+                    if embarque_tocado and not boasvindas_tocado:
+                        if tempo_embarque and time.time() - tempo_embarque >= 90:
+                            try:
+                                pygame.mixer.music.load("audio/02_BoasVindas.mp3")
+                                pygame.mixer.music.play()
+                                self.update_callback("[✔️] Boas-vindas")
+                                boasvindas_tocado = True
+                            except Exception as e:
+                                self.update_callback(f"⚠️ Erro ao tocar áudio de boas-vindas: {e}")
+
+                    # Áudio 3: Taxiamento (somente se GROUND_SPEED > 5 knots)
+                    if ground_speed_knots > 5 and not taxiamento_tocado:
+                        try:
+                            pygame.mixer.music.load("audio/03_Taxiamento.mp3")
+                            pygame.mixer.music.play()
+                            self.update_callback("[✔️] Taxiamento")
+                            taxiamento_tocado = True
+                        except Exception as e:
+                            self.update_callback(f"⚠️ Erro ao tocar áudio de taxiamento: {e}")
+
+
+                except Exception as e:
+                    self.update_callback(f"⚠️ Erro ao ler dados da aeronave: {e}")
                 time.sleep(2)
 
         except ConnectionError:
