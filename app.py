@@ -1,10 +1,14 @@
 import sys
 import threading
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QTextEdit
-from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QPushButton, 
+                            QVBoxLayout, QHBoxLayout, QTextEdit, QLabel, 
+                            QStatusBar, QFrame)
+from PyQt5.QtGui import QFont, QIcon, QPalette, QColor
+from PyQt5.QtCore import Qt, QSize
 from SimConnect import *
 import time
 import pygame
+import platform
 
 class SimConnectWorker(threading.Thread):
     def __init__(self, update_callback):
@@ -190,71 +194,232 @@ class SimConnectWorker(threading.Thread):
     def stop(self):
         self.running = False
 
-class MainWindow(QWidget):
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MSFS2020 - Áudio de Cabine")
-        self.setFixedSize(500, 400)
+        self.setFixedSize(700, 500)
         self.worker = None
         self.initUI()
+        self.center_window()
+
+    def center_window(self):
+        frame = self.frameGeometry()
+        center_point = QApplication.desktop().availableGeometry().center()
+        frame.moveCenter(center_point)
+        self.move(frame.topLeft())
 
     def initUI(self):
-        self.setStyleSheet("background-color: #5A5A5A;")
+        # Configuração geral da janela
+        self.setWindowIcon(QIcon("assets/icon.png"))  # Substitua por um ícone real
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #2C3E50;
+            }
+        """)
 
-        self.display = QTextEdit()
-        self.display.setReadOnly(True)
-        self.display.setStyleSheet("background-color: black; color: white;")
-        self.display.setFont(QFont("Consolas", 10))
+        # Widget central
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
 
-        self.connect_btn = QPushButton("Conectar")
-        self.stop_btn = QPushButton("Parar")
-        self.connect_btn.setFont(QFont("Arial", 12, QFont.Bold))
-        self.stop_btn.setFont(QFont("Arial", 12, QFont.Bold))
+        # Layout principal
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(20, 20, 20, 10)
+        main_layout.setSpacing(15)
 
-        style = """
-            QPushButton {
-                background-color: #8A8A8A;
-                color: white;
-                border: 1px solid black;
+        # Cabeçalho
+        header = QLabel("MSFS2020 - Áudio Automático de Cabine")
+        header.setStyleSheet("""
+            QLabel {
+                color: #ECF0F1;
+                font-size: 18px;
+                font-weight: bold;
                 padding: 10px;
             }
-            QPushButton:hover {
-                background-color: #AAAAAA;
-            }
-        """
-        self.connect_btn.setStyleSheet(style)
-        self.stop_btn.setStyleSheet(style)
+        """)
+        header.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(header)
 
+        # Separador
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        separator.setStyleSheet("color: #7F8C8D;")
+        main_layout.addWidget(separator)
+
+        # Área de exibição
+        self.display = QTextEdit()
+        self.display.setReadOnly(True)
+        self.display.setStyleSheet("""
+            QTextEdit {
+                background-color: #34495E;
+                color: #ECF0F1;
+                border: 1px solid #7F8C8D;
+                border-radius: 5px;
+                padding: 10px;
+            }
+        """)
+        self.display.setFont(QFont("Consolas", 10))
+        
+        # Adicionar informações iniciais
+        self.display.append("🛫 MSFS2020 - Áudio de Cabine")
+        self.display.append(f"📦 Versão: 1.0.0")
+        self.display.append(f"💻 Sistema: {platform.system()} {platform.release()}")
+        self.display.append(f"🐍 Python: {platform.python_version()}")
+        self.display.append("\n🔧 Aguardando conexão com o simulador...")
+        
+        main_layout.addWidget(self.display)
+
+        # Painel de botões
+        button_panel = QWidget()
+        button_layout = QHBoxLayout(button_panel)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(15)
+
+        self.connect_btn = QPushButton("Conectar ao Simulador")
+        self.stop_btn = QPushButton("Parar Conexão")
+        
+        # Configurar botões
+        for btn in [self.connect_btn, self.stop_btn]:
+            btn.setFont(QFont("Arial", 11, QFont.Bold))
+            btn.setMinimumHeight(40)
+            btn.setCursor(Qt.PointingHandCursor)
+        
+        self.connect_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27AE60;
+                color: white;
+                border-radius: 5px;
+                padding: 8px;
+            }
+            QPushButton:hover {
+                background-color: #2ECC71;
+            }
+            QPushButton:pressed {
+                background-color: #219653;
+            }
+        """)
+        
+        self.stop_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E74C3C;
+                color: white;
+                border-radius: 5px;
+                padding: 8px;
+            }
+            QPushButton:hover {
+                background-color: #EC7063;
+            }
+            QPushButton:pressed {
+                background-color: #C0392B;
+            }
+        """)
+        self.stop_btn.setEnabled(False)
+
+        # Ícones para os botões
+        self.connect_btn.setIcon(QIcon("assets/connect.png"))  # Substitua por ícones reais
+        self.stop_btn.setIcon(QIcon("assets/stop.png"))
+        self.connect_btn.setIconSize(QSize(20, 20))
+        self.stop_btn.setIconSize(QSize(20, 20))
+
+        # Conectar sinais
         self.connect_btn.clicked.connect(self.start_connection)
         self.stop_btn.clicked.connect(self.stop_connection)
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.display)
-
-        button_layout = QHBoxLayout()
         button_layout.addWidget(self.connect_btn)
         button_layout.addWidget(self.stop_btn)
+        main_layout.addWidget(button_panel)
 
-        layout.addLayout(button_layout)
-        self.setLayout(layout)
+        # Barra de status
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage("Pronto")
+
+        # Separador inferior
+        separator_bottom = QFrame()
+        separator_bottom.setFrameShape(QFrame.HLine)
+        separator_bottom.setFrameShadow(QFrame.Sunken)
+        separator_bottom.setStyleSheet("color: #7F8C8D;")
+        main_layout.addWidget(separator_bottom)
+
+        # Rodapé
+        footer = QLabel("© 2023 MSFS2020 Áudio de Cabine | Desenvolvido por SeuNome")
+        footer.setStyleSheet("""
+            QLabel {
+                color: #BDC3C7;
+                font-size: 10px;
+            }
+        """)
+        footer.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(footer)
 
     def start_connection(self):
         if not self.worker or not self.worker.is_alive():
-            self.display.append("🔄 Tentando conectar...")
+            self.display.clear()
+            self.display.append("🔄 Conectando ao Microsoft Flight Simulator 2020...")
+            self.status_bar.showMessage("Conectando...")
+            
             self.worker = SimConnectWorker(self.update_display)
             self.worker.start()
+            
+            self.connect_btn.setEnabled(False)
+            self.stop_btn.setEnabled(True)
 
     def stop_connection(self):
         if self.worker:
             self.worker.stop()
-            self.display.append("⛔ Conexão encerrada.")
+            self.display.append("⛔ Conexão encerrada pelo usuário.")
+            self.status_bar.showMessage("Desconectado")
+            
+            self.connect_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
             self.worker = None
 
-    def update_display(self, message):
-        self.display.append(message)
+    def update_display(self, message, msg_type="info"):
+        if msg_type == "error":
+            color = "#E74C3C"
+        elif msg_type == "success":
+            color = "#2ECC71"
+        else:
+            color = "#3498DB"
+        
+        self.display.append(f'<span style="color:{color}">{message}</span>')
+        self.status_bar.showMessage(message)
+        
+        # Rolagem automática para baixo
+        self.display.verticalScrollBar().setValue(
+            self.display.verticalScrollBar().maximum()
+        )
+
+    def closeEvent(self, event):
+        if self.worker:
+            self.worker.stop()
+            self.worker.join(timeout=1)
+        event.accept()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    
+    # Definir estilo geral
+    app.setStyle("Fusion")
+    
+    # Configurar paleta de cores
+    palette = QPalette()
+    palette.setColor(QPalette.Window, QColor(53, 53, 53))
+    palette.setColor(QPalette.WindowText, Qt.white)
+    palette.setColor(QPalette.Base, QColor(25, 25, 25))
+    palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
+    palette.setColor(QPalette.ToolTipBase, Qt.white)
+    palette.setColor(QPalette.ToolTipText, Qt.white)
+    palette.setColor(QPalette.Text, Qt.white)
+    palette.setColor(QPalette.Button, QColor(53, 53, 53))
+    palette.setColor(QPalette.ButtonText, Qt.white)
+    palette.setColor(QPalette.BrightText, Qt.red)
+    palette.setColor(QPalette.Link, QColor(42, 130, 218))
+    palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+    palette.setColor(QPalette.HighlightedText, Qt.black)
+    app.setPalette(palette)
+    
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
